@@ -3,6 +3,20 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+
+checkpoints/
+data/
+data_prc/
+embs/
+submission/
+
+*.ipynb
+.ipynb_checkpoints/
+
+
+
+
 # C extensions
 *.so
 
