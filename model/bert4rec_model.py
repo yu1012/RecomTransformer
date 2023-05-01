@@ -5,7 +5,6 @@ import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 from modules import Encoder, Decoder
-import pytorch_lightning as pl
 
 class RecommendationTransformer(nn.Module):
     def __init__(self,

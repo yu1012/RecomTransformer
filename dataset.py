@@ -21,6 +21,7 @@ class CONSTANTS:
 class Bert4RecDataset(Dataset):
     def __init__(self,
                  sessions,
+                 max_len,
                  split_mode
                  ):
 
@@ -29,7 +30,7 @@ class Bert4RecDataset(Dataset):
         self.split_mode = split_mode
 
         self.sessions = sessions
-        self.max_len = max([len(sess) for sess in self.sessions])
+        self.max_len = max_len
 
         self.pad = CONSTANTS.PAD
         self.mask = CONSTANTS.MASK
@@ -47,15 +48,15 @@ class Bert4RecDataset(Dataset):
 
     def mask_last_elements_sequence(self, sequence):
         last = len(sequence)-1
-        sequence = sequence[:last] + self.mask_sequence(
-            sequence[last:], p=1.0)
+        sequence = sequence[:last] + self.mask_sequence(sequence[last:], p=0.0)
         return sequence
 
     def get_item(self, idx):
         trg_items = self.sessions[idx]
 
         if self.split_mode == "train":
-            src_items = self.mask_sequence(trg_items)
+            src_items = self.mask_last_elements_sequence(trg_items)
+            # src_items = self.mask_sequence(src_items)
         else:
             src_items = self.mask_last_elements_sequence(trg_items)
 
