@@ -17,12 +17,12 @@ class Encoder(nn.Module):
                  dim_inner,
                  pad_id,
                  dropout=0.1,
-                 num_pos=200):
+                 num_pos=200, feat=None):
 
         super().__init__()
 
         self.word_embedding = nn.Embedding(source_vocab_size,
-                                           emb_dim,
+                                           emb_dim//2,
                                            padding_idx=pad_id)
         self.position_encoding = PositionalEncoding(emb_dim, num_pos=num_pos)
 
@@ -38,13 +38,23 @@ class Encoder(nn.Module):
         ])
 
         self.layer_norm = nn.LayerNorm(dim_model, eps=1e-6)
+        
+        self.feat = feat
+        self.elu = nn.ELU()
+        
+        if feat is not None:
+            self.feat_transform = nn.Linear(feat.shape[-1], emb_dim//2)
 
     def forward(self, source_seq, source_mask, return_attentions=False):
 
         encoder_self_attention_list = []
-
-        encoder_output = self.dropout(
-            self.position_encoding(self.word_embedding(source_seq)))
+        
+        if self.feat is not None:
+            encoder_output = self.dropout(
+                self.position_encoding(torch.cat((self.word_embedding(source_seq), self.elu(self.feat_transform(self.feat[source_seq]))), dim=-1)))
+        else:
+            encoder_output = self.dropout(
+                self.position_encoding(self.word_embedding(source_seq)))
 
         for encoder_layer in self.layer_stack:
 

@@ -7,18 +7,18 @@ import torch.nn.functional as F
 def parse_args():
     parser = argparse.ArgumentParser(add_help=False)
     
-    parser.add_argument('--data_path', type=str, default='data_prc/de_train.pkl')
-    parser.add_argument('--lr', type=float, default=0.001)
+
+    parser.add_argument('--dataset', type=str, default='DE')
+    parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--epoch', type=int, default=50)
-    parser.add_argument('--batch_size', type=int, default=256)
+    parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--rank', type=int, default=0)
-    parser.add_argument('--vis_step', type=int, default=10)
     parser.add_argument('--num_workers', type=int, default=16)
-    parser.add_argument('--gpu_ids', nargs="+", default=['1', '2', '3', '4', '5', '6', '7'])
+    parser.add_argument('--gpu_ids', nargs="+", default=['2', '3', '4', '5', '6', '7'])
     parser.add_argument('--world_size', type=int, default=0)
-    parser.add_argument('--port', type=int, default=2022)
-    parser.add_argument('--save_path', type=str, default='./save')
-    parser.add_argument('--save_file_name', type=str, default='vgg_cifar')
+    parser.add_argument('--heads', type=int, default=1)
+    parser.add_argument('--layers', type=int, default=1)
+    parser.add_argument('--port', type=int, default=2023)
     parser.add_argument('--local_rank', type=int)
     parser.add_argument('--dist_url', type=str)
 

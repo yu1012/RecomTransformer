@@ -10,12 +10,7 @@ class CONSTANTS:
     """
     PAD = 0
     MASK = 1
-    HISTORY = 120
-    VOCAB_SIZE = 59049
-    HEADS = 4
-    LAYERS = 6
-    EMB_DIM = 256
-    DATA_PATH = ""
+
 
 
 class Bert4RecDataset(Dataset):
@@ -48,7 +43,7 @@ class Bert4RecDataset(Dataset):
 
     def mask_last_elements_sequence(self, sequence):
         last = len(sequence)-1
-        sequence = sequence[:last] + self.mask_sequence(sequence[last:], p=0.0)
+        sequence = sequence[:last] + [CONSTANTS.MASK]
         return sequence
 
     def get_item(self, idx):
@@ -67,7 +62,7 @@ class Bert4RecDataset(Dataset):
         trg_mask = [1 if t != CONSTANTS.PAD else 0 for t in trg_items]
         src_mask = [1 if t != CONSTANTS.PAD else 0 for t in src_items]
 
-        src_items = torch.IntTensor(src_items)
+        src_items = torch.LongTensor(src_items)
         trg_items = torch.LongTensor(trg_items)
         src_mask = torch.IntTensor(src_mask)
         trg_mask = torch.IntTensor(trg_mask)

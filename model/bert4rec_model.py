@@ -9,28 +9,28 @@ from modules import Encoder, Decoder
 class RecommendationTransformer(nn.Module):
     def __init__(self,
                  vocab_size,
-                 heads=4,
-                 layers=6,
-                 emb_dim=256,
+                 heads=1,
+                 layers=1,
+                 emb_dim=128,
                  pad_id=0,
-                 num_pos=128):
+                 num_pos=128, feat=None):
         super().__init__()
 
         self.emb_dim = emb_dim
         self.pad_id = pad_id
         self.num_pos = num_pos
         self.vocab_size = vocab_size
-
+        
         self.encoder = Encoder(source_vocab_size=vocab_size,
                                emb_dim=emb_dim,
                                layers=layers,
                                heads=heads,
                                dim_model=emb_dim,
-                               dim_inner=4 * emb_dim,
+                               dim_inner=emb_dim,
                                dim_value=emb_dim,
                                dim_key=emb_dim,
                                pad_id=self.pad_id,
-                               num_pos=num_pos)
+                               num_pos=num_pos, feat=feat)
 
         # self.decoder = Decoder(target_vocab_size=vocab_size,
         #                        emb_dim=emb_dim,
@@ -45,64 +45,17 @@ class RecommendationTransformer(nn.Module):
 
         self.rec = nn.Linear(emb_dim, vocab_size)
 
-    def forward(self, source, source_mask):
+    def forward(self, source, source_mask, ind):
 
         enc_op = self.encoder(source, source_mask)
+        
+        # embs = T.cat((self.encoder.word_embedding(ind), self.encoder.elu(self.encoder.feat_transform(self.encoder.feat[ind]))), dim=-1)
+        # op = T.matmul(enc_op, embs.T)
 
         op = self.rec(enc_op)
 
         return op.permute(0, 2, 1)
 
-
-
-
-
-class RecommendationTransformer(nn.Module):
-    def __init__(self,
-                 vocab_size,
-                 heads=4,
-                 layers=6,
-                 emb_dim=256,
-                 pad_id=0,
-                 num_pos=128):
-        super().__init__()
-
-        self.emb_dim = emb_dim
-        self.pad_id = pad_id
-        self.num_pos = num_pos
-        self.vocab_size = vocab_size
-
-        self.encoder = Encoder(source_vocab_size=vocab_size,
-                               emb_dim=emb_dim,
-                               layers=layers,
-                               heads=heads,
-                               dim_model=emb_dim,
-                               dim_inner=4 * emb_dim,
-                               dim_value=emb_dim,
-                               dim_key=emb_dim,
-                               pad_id=self.pad_id,
-                               num_pos=num_pos)
-
-        # self.decoder = Decoder(target_vocab_size=vocab_size,
-        #                        emb_dim=emb_dim,
-        #                        layers=layers,
-        #                        heads=heads,
-        #                        dim_key=emb_dim,
-        #                        dim_value=emb_dim,
-        #                        dim_model=emb_dim,
-        #                        dim_inner=4 * emb_dim,
-        #                        pad_id=pad_id,
-        #                        num_pos=num_pos)
-
-        self.rec = nn.Linear(emb_dim, vocab_size)
-
-    def forward(self, source, source_mask):
-
-        enc_op = self.encoder(source, source_mask)
-
-        op = self.rec(enc_op)
-
-        return op.permute(0, 2, 1)
 
 
 class RecommendationModel(nn.Module):
