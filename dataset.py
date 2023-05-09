@@ -48,6 +48,7 @@ class Bert4RecDataset(Dataset):
 
     def get_item(self, idx):
         trg_items = self.sessions[idx]
+        tgt = [trg_items[-1]]
 
         if self.split_mode == "train":
             src_items = self.mask_last_elements_sequence(trg_items)
@@ -67,9 +68,10 @@ class Bert4RecDataset(Dataset):
         src_mask = torch.IntTensor(src_mask)
         trg_mask = torch.IntTensor(trg_mask)
         
+        tgt = torch.LongTensor(tgt)
         return {
             "source": src_items,
-            "target": trg_items,
+            "target": tgt,
             "source_mask": src_mask,
             "target_mask": trg_mask
         }

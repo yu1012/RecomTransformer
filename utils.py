@@ -14,10 +14,11 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--rank', type=int, default=0)
     parser.add_argument('--num_workers', type=int, default=16)
-    parser.add_argument('--gpu_ids', nargs="+", default=['2', '3', '4', '5', '6', '7'])
+    parser.add_argument('--gpu_ids', nargs="+", default=['6', '7'])
     parser.add_argument('--world_size', type=int, default=0)
     parser.add_argument('--heads', type=int, default=1)
     parser.add_argument('--layers', type=int, default=1)
+    parser.add_argument('--dim', type=int, default=512)
     parser.add_argument('--port', type=int, default=2023)
     parser.add_argument('--local_rank', type=int)
     parser.add_argument('--dist_url', type=str)
@@ -63,7 +64,7 @@ def setup_for_distributed(is_master):
     __builtin__.print = print
 
 
-def calculate_loss(y_pred, y_true, mask):
+def calculate_loss(y_pred, y_true):
     """Calculates the loss between true and predicted using cross entropy
 
     Args:
@@ -75,9 +76,9 @@ def calculate_loss(y_pred, y_true, mask):
     Returns:
         T.tensor: Total loss
     """
-    loss = F.cross_entropy(y_pred, y_true, reduction="none", ignore_index=0)
-    loss = loss * mask
-    loss = loss.sum() / (mask.sum() + 1e-8)
+    loss = F.cross_entropy(y_pred, y_true, ignore_index=0)
+    # loss = loss * mask
+    # loss = loss.sum() / (mask.sum() + 1e-8)
     
     return loss
 

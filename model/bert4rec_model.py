@@ -50,6 +50,8 @@ class RecommendationTransformer(nn.Module):
         enc_op = self.encoder(source, source_mask)
         
         # embs = T.cat((self.encoder.word_embedding(ind), self.encoder.elu(self.encoder.feat_transform(self.encoder.feat[ind]))), dim=-1)
+        
+        # embs = self.encoder.word_embedding(ind)
         # op = T.matmul(enc_op, embs.T)
 
         op = self.rec(enc_op)

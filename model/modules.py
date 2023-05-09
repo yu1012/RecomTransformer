@@ -22,7 +22,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.word_embedding = nn.Embedding(source_vocab_size,
-                                           emb_dim//2,
+                                           emb_dim,
                                            padding_idx=pad_id)
         self.position_encoding = PositionalEncoding(emb_dim, num_pos=num_pos)
 
@@ -55,6 +55,8 @@ class Encoder(nn.Module):
         else:
             encoder_output = self.dropout(
                 self.position_encoding(self.word_embedding(source_seq)))
+
+
 
         for encoder_layer in self.layer_stack:
 
