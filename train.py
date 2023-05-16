@@ -40,6 +40,7 @@ if args.rank == 0:
     )
 
 # feat = torch.load(f'data_prc/embs/{args.dataset}.pt')
+# feat = torch.load(f'data_prc/word2vec/{args.dataset}.pt')
 # feat = torch.cat((torch.zeros(2, feat.shape[-1]), feat), dim=0)
 feat = None
 
@@ -55,10 +56,10 @@ train_dataset = Bert4RecDataset(train_session, max_len, split_mode="train")
 val_dataset = Bert4RecDataset(val_session, max_len, split_mode="val")
 
 train_sampler = DistributedSampler(dataset=train_dataset, shuffle=True)
-val_sampler = DistributedSampler(dataset=val_dataset, shuffle=False)
+# val_sampler = DistributedSampler(dataset=val_dataset, shuffle=False)
 
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, sampler=train_sampler)
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size//10, shuffle=False, num_workers=4, sampler=val_sampler)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4) # , sampler=val_sampler)
 
 device = 'cuda:{}'.format(args.gpu)
 
@@ -71,13 +72,14 @@ model = DDP(module=model, device_ids=[args.gpu])
 optimizer = torch.optim.AdamW(params=model.parameters(), lr=args.lr, eps=1e-8)
 
 min_val_loss = 1e+9
+max_mrr = 0
 
 for epoch in range(args.epoch):
     model.train()
     train_sampler.set_epoch(epoch)
     
     train_loss = []
-    # ind = torch.LongTensor([i for i in range(2, num_item)]).to(device)
+    # ind = torch.LongTensor([i for i in range(0, num_item)]).to(device)
     ind = 1
 
     for idx, batch in enumerate(tqdm(train_loader)):
@@ -102,7 +104,7 @@ for epoch in range(args.epoch):
         if args.rank == 0:
             if idx % 100 == 1:
                 wandb.log({'train step loss': np.mean(train_loss[max(0,idx-100):idx])})
-
+                
                 
     model.eval()
     with torch.no_grad():
@@ -115,17 +117,21 @@ for epoch in range(args.epoch):
             index  = torch.arange(src.shape[0]).unsqueeze(-1)
             # tgt_mask = batch['target_mask'].to(device)
             mask = (src == TRAIN_CONSTANTS.MASK).nonzero()[:,1].unsqueeze(-1)
-            
+
             output = model(src, src_mask, ind)
             output = output[index, :, mask].squeeze()
-            
+
             loss = calculate_loss(output, tgt)
             val_loss.append(loss.item())
 
 
-            topk = torch.topk(output, k=100).indices
+            topk = torch.topk(output, k=110).indices
             for i in range(topk.shape[0]):
-                rank = (topk[i]==tgt[i]).nonzero()
+                topk_i = topk[i]
+                topk_i = topk_i[topk_i != 0]
+                topk_i = topk_i[topk_i != 1]
+                
+                rank = (topk_i[~torch.isin(topk_i, src[i])][:100]==tgt[i]).nonzero()
 
                 if len(rank) != 0:
                     mrr.append(1/(1+rank.cpu().item()))
@@ -137,13 +143,13 @@ for epoch in range(args.epoch):
 
 
     if args.rank == 0:
-        wandb.log({"train_loss": np.mean(train_loss), "val_loss": val_loss, "MRR@100": mrr})
+        wandb.log({"train_loss": np.mean(train_loss), "val_loss": val_loss, "MRR@100": mrr, "epoch": epoch})
 
-        if val_loss < min_val_loss:
-            min_val_loss = val_loss
+        if max_mrr < mrr:
+            max_mrr = mrr
             
             checkpoint = {'epoch': epoch,
                           'model_state_dict': model.module.state_dict(),
                           'optimizer_state_dict': optimizer.state_dict()
             }
-            torch.save(checkpoint, f"checkpoints/{args.dataset}_checkpoint.tar")
+            torch.save(checkpoint, f"checkpoints/{args.dataset}_lin_checkpoint.tar")
