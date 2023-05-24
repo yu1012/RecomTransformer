@@ -13,13 +13,14 @@ class RecommendationTransformer(nn.Module):
                  layers=1,
                  emb_dim=128,
                  pad_id=0,
-                 num_pos=128, feat=None):
+                 num_pos=128, feat=None, edge_index=None, edge_weight=None, ind=None):
         super().__init__()
 
         self.emb_dim = emb_dim
         self.pad_id = pad_id
         self.num_pos = num_pos
         self.vocab_size = vocab_size
+        self.feat = feat
         
         self.encoder = Encoder(source_vocab_size=vocab_size,
                                emb_dim=emb_dim,
@@ -30,7 +31,8 @@ class RecommendationTransformer(nn.Module):
                                dim_value=emb_dim,
                                dim_key=emb_dim,
                                pad_id=self.pad_id,
-                               num_pos=num_pos, feat=feat)
+                               num_pos=num_pos, feat=feat,
+                               edge_index=edge_index, edge_weight=edge_weight, ind=ind)
 
         # self.decoder = Decoder(target_vocab_size=vocab_size,
         #                        emb_dim=emb_dim,
@@ -43,18 +45,19 @@ class RecommendationTransformer(nn.Module):
         #                        pad_id=pad_id,
         #                        num_pos=num_pos)
 
-        self.rec = nn.Linear(emb_dim, vocab_size)
+        # self.rec = nn.Linear(emb_dim, vocab_size)
 
     def forward(self, source, source_mask, ind):
 
         enc_op = self.encoder(source, source_mask)
         
-        # embs = T.cat((self.encoder.word_embedding(ind), self.encoder.elu(self.encoder.feat_transform(self.encoder.feat[ind]))), dim=-1)
+        if self.feat is not None:
+            embs = T.cat((self.encoder.word_embedding(ind), self.encoder.elu(self.encoder.feat_transform(self.encoder.feat[ind]))), dim=-1)
+        else:
+            embs = self.encoder.word_embedding(ind)
         
-        # embs = self.encoder.word_embedding(ind)
-        # op = T.matmul(enc_op, embs.T)
-
-        op = self.rec(enc_op)
+        op = T.matmul(enc_op, embs.T)
+        # op = self.rec(enc_op)
 
         return op.permute(0, 2, 1)
 

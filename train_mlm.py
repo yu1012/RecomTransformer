@@ -9,8 +9,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
-import torch.nn.functional as F
-
 from tqdm import tqdm
 os.sys.path.append("model/")
 
@@ -48,13 +46,7 @@ feat = torch.cat((torch.zeros(2, feat.shape[-1]), feat), dim=0)
 # feat = torch.load(f'data_prc/word2vec/{args.dataset}.pt')
 # feat = None
 
-# gnn_data = torch.load(f'data_prc/{args.dataset}_gnn.pkl')
-# edge_index = gnn_data['edge_index']
-# edge_weight = gnn_data['edge_weight']
-edge_index = None
-edge_weight = None
-
-with open(file=f'data_prc/{args.dataset}_data_augment.pkl', mode='rb') as f:
+with open(file=f'data_prc/{args.dataset}_data.pkl', mode='rb') as f:
     data = pickle.load(f)
 
 train_session, val_session, test_session = data
@@ -74,15 +66,8 @@ val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, 
 device = 'cuda:{}'.format(args.gpu)
 
 feat = feat.to(device)
-ind = torch.LongTensor([i for i in range(0, num_item)]).to(device)
-# ind = 1
 
-# edge_index = edge_index.to(device)
-# edge_weight = edge_weight.to(device)
-
-
-model = RecommendationTransformer(vocab_size=num_item, heads=args.heads, layers=args.layers,
-                                emb_dim=args.dim, num_pos=max_len, feat=feat, edge_index=edge_index, edge_weight=edge_weight, ind=ind)
+model = RecommendationTransformer(vocab_size=num_item, heads=args.heads, layers=args.layers, emb_dim=args.dim, num_pos=max_len, feat=feat)
 model = model.to(device)
 model = DDP(module=model, device_ids=[args.gpu])
 
@@ -96,19 +81,19 @@ for epoch in range(args.epoch):
     train_sampler.set_epoch(epoch)
     
     train_loss = []
+    ind = torch.LongTensor([i for i in range(0, num_item)]).to(device)
+    # ind = 1
+
     for idx, batch in enumerate(tqdm(train_loader)):
         src = batch['source'].to(device)        # batch_size * max_len(10)
         src_mask = batch['source_mask'].to(device)
-        tgt = batch['target'].squeeze().to(device)
-        index  = torch.arange(src.shape[0]).unsqueeze(-1)
-        mask = batch['mask_token'].to(device)
+        tgt = batch['target'].to(device)
+        mask = (src == TRAIN_CONSTANTS.MASK)
         
         optimizer.zero_grad()
         
         output = model(src, src_mask, ind)
-        output = output[index, :, mask].squeeze()
-
-        loss = calculate_loss(output, tgt)
+        loss = calculate_loss(output, tgt, mask)
         loss.backward()
         optimizer.step()
 
@@ -126,22 +111,24 @@ for epoch in range(args.epoch):
         for _, batch in enumerate(tqdm(val_loader)):
             src = batch['source'].to(device)
             src_mask = batch['source_mask'].to(device)
-            tgt = batch['target'].squeeze().to(device)
-            index  = torch.arange(src.shape[0]).unsqueeze(-1)
-            mask = batch['mask_token'].to(device)
+            tgt = batch['target'].to(device)
+            mask = (src == TRAIN_CONSTANTS.MASK)
 
             output = model(src, src_mask, ind)
-            output = output[index, :, mask].squeeze()
-
-            loss = calculate_loss(output, tgt)
+            loss = calculate_loss(output, tgt, mask)
             val_loss.append(loss.item())
+
+            mask = mask.nonzero()[:,1].unsqueeze(-1)
+            index  = torch.arange(src.shape[0]).unsqueeze(-1)
+            output = output[index, :, mask].squeeze()
+            tgt = tgt[index, mask].squeeze()
 
             topk = torch.topk(output, k=110).indices
             for i in range(topk.shape[0]):
                 topk_i = topk[i]
                 topk_i = topk_i[topk_i != 0]
                 topk_i = topk_i[topk_i != 1]
-
+                
                 rank = (topk_i[~torch.isin(topk_i, src[i])][:100]==tgt[i]).nonzero()
 
                 if len(rank) != 0:

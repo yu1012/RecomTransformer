@@ -11,6 +11,8 @@ class CONSTANTS:
     PAD = 0
     MASK = 1
 
+
+
 class Bert4RecDataset(Dataset):
     def __init__(self,
                  sessions,
@@ -33,17 +35,25 @@ class Bert4RecDataset(Dataset):
             tokens = tokens + [self.pad] * (self.max_len - len(tokens))
         return tokens
 
+    def mask_sequence(self, sequence, p=0.85):
+        return [
+            s if random.random() < p else CONSTANTS.MASK
+            for s in sequence
+        ]
+
     def mask_last_elements_sequence(self, sequence):
         last = len(sequence)-1
-        sequence = sequence[:last]
+        sequence = sequence[:last] + [CONSTANTS.MASK]
         return sequence
 
     def get_item(self, idx):
-        trg_items = self.sessions[idx][:-1]
+        trg_items = self.sessions[idx]
         tgt = [trg_items[-1]]
 
         if self.split_mode == "train":
             src_items = self.mask_last_elements_sequence(trg_items)
+            if len(trg_items) > 3:
+                src_items = self.mask_sequence(src_items)
         else:
             src_items = self.mask_last_elements_sequence(trg_items)
 
@@ -58,17 +68,18 @@ class Bert4RecDataset(Dataset):
         trg_items = torch.LongTensor(trg_items)
         src_mask = torch.IntTensor(src_mask)
         trg_mask = torch.IntTensor(trg_mask)
-        
-        tgt = torch.LongTensor(tgt)
+
         mask_token = (src_items==CONSTANTS.PAD).nonzero()[0]-1 if len((src_items==CONSTANTS.PAD).nonzero())!=0 else torch.LongTensor([self.max_len-1])
         
+        tgt = torch.LongTensor(tgt)
         return {
             "source": src_items,
-            "target": tgt,
+            "target": trg_items,
             "source_mask": src_mask,
             "target_mask": trg_mask,
             "mask_token": mask_token
         }
+
 
     def __len__(self):
         return len(self.sessions)
